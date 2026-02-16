@@ -31,6 +31,9 @@ stat_type = st.selectbox(
     ],
 )
 
+# Over vs Under toggle
+pick = st.selectbox("Pick", ["Over", "Under"])
+
 line = st.number_input("Line", value=19.5)
 
 if player_name:
@@ -64,20 +67,23 @@ if player_name:
             for c in cols:
                 log[c] = pd.to_numeric(log[c], errors="coerce")
 
-            # Compute value + hit
+            # Compute value
             log["StatValue"] = log[cols].sum(axis=1)
-            log["Hit"] = log["StatValue"] > line
+
+            # Hit logic based on pick
+            if pick == "Over":
+                log["Hit"] = log["StatValue"] > line
+            else:
+                log["Hit"] = log["StatValue"] < line
 
             st.success(f"Loaded {len(log)} games for {player_name}")
 
             hit_rate = log["Hit"].mean() * 100
-            st.metric("Season Hit Rate", f"{hit_rate:.1f}%")
+            st.metric(f"{pick} Hit Rate", f"{hit_rate:.1f}%")
 
-            # Show recent games (game log is typically newest first)
             st.dataframe(
                 log[["GAME_DATE", "MATCHUP", "StatValue", "Hit"]].head(15)
             )
 
     except Exception:
         st.error("NBA Servers are busy. Please wait 10 seconds and try again.")
-        
