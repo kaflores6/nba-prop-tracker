@@ -12,12 +12,23 @@ player_name = st.selectbox("Search for an NBA Player", options=active_players)
 
 stat_type = st.selectbox(
     "Category",
-    ["PTS","REB","AST","PTS+REB","PTS+AST","REB+AST","PRA","STL","BLK"]
+    [
+        "PTS",
+        "REB",
+        "AST",
+        "PTS+REB",
+        "PTS+AST",
+        "REB+AST",
+        "PRA",
+        "STL",
+        "BLK",
+        "3PM",   # ✅ Added 3PT Made
+    ],
 )
 
 pick = st.selectbox("Pick", ["Over", "Under"])
 
-# NEW: overall/home/away split
+# overall / home / away split
 split = st.selectbox("Split", ["Overall", "Home", "Away"])
 
 line = st.number_input("Line", value=19.5)
@@ -25,14 +36,20 @@ line = st.number_input("Line", value=19.5)
 if player_name:
     try:
         nba_players = players.find_players_by_full_name(player_name)
+
         if not nba_players:
             st.warning("Player not found.")
         else:
             p_id = nba_players[0]["id"]
-            log = playergamelog.PlayerGameLog(player_id=p_id, timeout=30).get_data_frames()[0]
 
-            # Determine home/away from MATCHUP
-            log["Location"] = log["MATCHUP"].apply(lambda x: "Away" if "@" in x else "Home")
+            log = playergamelog.PlayerGameLog(
+                player_id=p_id, timeout=30
+            ).get_data_frames()[0]
+
+            # Determine home/away
+            log["Location"] = log["MATCHUP"].apply(
+                lambda x: "Away" if "@" in x else "Home"
+            )
 
             # Apply split filter
             if split != "Overall":
@@ -48,9 +65,11 @@ if player_name:
                 "PRA": ["PTS", "REB", "AST"],
                 "STL": ["STL"],
                 "BLK": ["BLK"],
+                "3PM": ["FG3M"],  # ✅ 3PT Made mapping
             }
 
             cols = stat_map[stat_type]
+
             for c in cols:
                 log[c] = pd.to_numeric(log[c], errors="coerce")
 
@@ -64,12 +83,16 @@ if player_name:
             if len(log) == 0:
                 st.warning(f"No games found for split: {split}")
             else:
-                st.success(f"{player_name} — {split} games: {len(log)}")
                 hit_rate = log["Hit"].mean() * 100
+
+                st.success(f"{player_name} — {split} games: {len(log)}")
                 st.metric(f"{pick} Hit Rate ({split})", f"{hit_rate:.1f}%")
 
                 st.dataframe(
-                    log[["GAME_DATE", "MATCHUP", "Location", "StatValue", "Hit"]].head(15)
+                    log[
+                        ["GAME_DATE", "MATCHUP", "Location", "StatValue", "Hit"]
+                    ].head(15)
                 )
+
     except Exception:
         st.error("NBA Servers are busy. Please wait 10 seconds and try again.")
