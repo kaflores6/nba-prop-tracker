@@ -71,6 +71,5 @@ if player_name:
                 st.dataframe(
                     log[["GAME_DATE", "MATCHUP", "Location", "StatValue", "Hit"]].head(15)
                 )
-
     except Exception:
         st.error("NBA Servers are busy. Please wait 10 seconds and try again.")
