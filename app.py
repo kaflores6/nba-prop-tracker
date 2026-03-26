@@ -13,7 +13,18 @@ player_name = st.selectbox("Search for an NBA Player", options=active_players)
 # --- Stat selection ---
 stat_type = st.selectbox(
     "Category",
-    ["PTS", "REB", "AST", "PTS+REB", "PTS+AST", "REB+AST", "PRA", "STL", "BLK", "3PM"],
+    [
+        "PTS",
+        "REB",
+        "AST",
+        "PTS+REB",
+        "PTS+AST",
+        "REB+AST",
+        "PRA",
+        "STL",
+        "BLK",
+        "3PM",
+    ],
 )
 
 pick = st.selectbox("Pick", ["Over", "Under"])
@@ -25,7 +36,10 @@ nba_teams = teams.get_teams()
 team_abbrevs = sorted([t["abbreviation"] for t in nba_teams])
 opponent = st.selectbox("Opponent (team)", ["All"] + team_abbrevs)
 
-game_range = st.selectbox("Game Sample", ["All Games", "Last 15 Games"])
+game_range = st.selectbox(
+    "Game Sample",
+    ["All Games", "Last 5", "Last 10", "Last 15", "Last 20"]
+)
 
 line = st.number_input("Line", value=19.5)
 
@@ -38,12 +52,23 @@ if player_name:
         else:
             p_id = nba_players[0]["id"]
 
-            log = playergamelog.PlayerGameLog(player_id=p_id, timeout=30).get_data_frames()[0]
+            log = playergamelog.PlayerGameLog(
+                player_id=p_id,
+                timeout=30
+            ).get_data_frames()[0]
+
+            # Make sure most recent games are first
+            log["GAME_DATE"] = pd.to_datetime(log["GAME_DATE"])
+            log = log.sort_values("GAME_DATE", ascending=False).copy()
 
             # Home/Away from MATCHUP
-            log["Location"] = log["MATCHUP"].apply(lambda x: "Away" if "@" in x else "Home")
+            log["Location"] = log["MATCHUP"].apply(
+                lambda x: "Away" if "@" in x else "Home"
+            )
 
             # Opponent abbreviation from MATCHUP
+            # Example: "MIN @ LAL" -> "LAL"
+            # Example: "MIN vs. LAL" -> "LAL"
             log["OPP"] = log["MATCHUP"].str.split().str[-1]
 
             # Apply split filter
@@ -55,8 +80,9 @@ if player_name:
                 log = log[log["OPP"] == opponent].copy()
 
             # Apply game sample filter
-            if game_range == "Last 15 Games":
-                log = log.head(15).copy()
+            if game_range != "All Games":
+                n_games = int(game_range.split()[1])
+                log = log.head(n_games).copy()
 
             stat_map = {
                 "PTS": ["PTS"],
@@ -100,8 +126,10 @@ if player_name:
                 st.metric(f"{pick} Hit Rate ({label})", f"{hit_rate:.1f}%")
 
                 st.dataframe(
-                    log[["GAME_DATE", "MATCHUP", "Location", "OPP", "StatValue", "Hit"]].head(25)
+                    log[
+                        ["GAME_DATE", "MATCHUP", "Location", "OPP", "StatValue", "Hit"]
+                    ].head(25)
                 )
 
-    except Exception:
-        st.error("NBA Servers are busy. Please wait 10 seconds and try again.")
+    except Exception as e:
+        st.error(f"NBA servers are busy or an error occurred: {e}")
