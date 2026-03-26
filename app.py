@@ -18,13 +18,14 @@ stat_type = st.selectbox(
 
 pick = st.selectbox("Pick", ["Over", "Under"])
 
-# --- Split + Opponent filters ---
+# --- Filters ---
 split = st.selectbox("Split", ["Overall", "Home", "Away"])
 
-# Build opponent list (team abbreviations)
 nba_teams = teams.get_teams()
 team_abbrevs = sorted([t["abbreviation"] for t in nba_teams])
 opponent = st.selectbox("Opponent (team)", ["All"] + team_abbrevs)
+
+game_range = st.selectbox("Game Sample", ["All Games", "Last 15 Games"])
 
 line = st.number_input("Line", value=19.5)
 
@@ -42,8 +43,7 @@ if player_name:
             # Home/Away from MATCHUP
             log["Location"] = log["MATCHUP"].apply(lambda x: "Away" if "@" in x else "Home")
 
-            # Opponent abbreviation from MATCHUP (last token)
-            # Examples: "MIN @ LAL" -> "LAL", "MIN vs. LAL" -> "LAL"
+            # Opponent abbreviation from MATCHUP
             log["OPP"] = log["MATCHUP"].str.split().str[-1]
 
             # Apply split filter
@@ -53,6 +53,10 @@ if player_name:
             # Apply opponent filter
             if opponent != "All":
                 log = log[log["OPP"] == opponent].copy()
+
+            # Apply game sample filter
+            if game_range == "Last 15 Games":
+                log = log.head(15).copy()
 
             stat_map = {
                 "PTS": ["PTS"],
@@ -68,6 +72,7 @@ if player_name:
             }
 
             cols = stat_map[stat_type]
+
             for c in cols:
                 log[c] = pd.to_numeric(log[c], errors="coerce")
 
@@ -79,13 +84,16 @@ if player_name:
                 log["Hit"] = log["StatValue"] < line
 
             if len(log) == 0:
-                st.warning(f"No games found for filters: Split={split}, Opponent={opponent}")
+                st.warning(
+                    f"No games found for filters: Split={split}, Opponent={opponent}, Sample={game_range}"
+                )
             else:
                 hit_rate = log["Hit"].mean() * 100
 
                 label_parts = [split]
                 if opponent != "All":
                     label_parts.append(f"vs {opponent}")
+                label_parts.append(game_range)
                 label = " • ".join(label_parts)
 
                 st.success(f"{player_name} — games: {len(log)} ({label})")
