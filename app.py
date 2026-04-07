@@ -14,7 +14,7 @@ def add_derived_columns(df):
 
     numeric_cols = [
         "MIN", "PTS", "REB", "AST", "STL", "BLK",
-        "FG3M", "FGM", "FGA", "FTM", "FTA", "TOV"
+        "FGM", "FGA", "FG3M", "FG3A", "FTM", "FTA", "TOV"
     ]
 
     for col in numeric_cols:
@@ -71,11 +71,18 @@ def build_per_game_stats(df):
             "3PM": 0.0,
             "FGM": 0.0,
             "FGA": 0.0,
-            "FTM": 0.0,
-            "FTA": 0.0,
+            "FG%": 0.0,
+            "3P%": 0.0,
+            "FT%": 0.0,
             "TOV": 0.0,
-            "PRA": 0.0,
         }
+
+    fgm = df["FGM"].sum()
+    fga = df["FGA"].sum()
+    fg3m = df["FG3M"].sum()
+    fg3a = df["FG3A"].sum() if "FG3A" in df.columns else 0
+    ftm = df["FTM"].sum()
+    fta = df["FTA"].sum()
 
     return {
         "GP": len(df),
@@ -88,10 +95,10 @@ def build_per_game_stats(df):
         "3PM": df["FG3M"].mean(),
         "FGM": df["FGM"].mean(),
         "FGA": df["FGA"].mean(),
-        "FTM": df["FTM"].mean(),
-        "FTA": df["FTA"].mean(),
+        "FG%": (fgm / fga * 100) if fga > 0 else 0,
+        "3P%": (fg3m / fg3a * 100) if fg3a > 0 else 0,
+        "FT%": (ftm / fta * 100) if fta > 0 else 0,
         "TOV": df["TOV"].mean(),
-        "PRA": df["PRA"].mean(),
     }
 
 
@@ -106,13 +113,19 @@ def show_stat_row(title, stats_dict):
     c2.metric("REB", f"{stats_dict['REB']:.1f}")
 
     c3.metric("AST", f"{stats_dict['AST']:.1f}")
-    c3.metric("PRA", f"{stats_dict['PRA']:.1f}")
+    c3.metric("TOV", f"{stats_dict['TOV']:.1f}")
 
     c4.metric("STL", f"{stats_dict['STL']:.1f}")
     c4.metric("BLK", f"{stats_dict['BLK']:.1f}")
 
     c5.metric("3PM", f"{stats_dict['3PM']:.1f}")
-    c5.metric("TOV", f"{stats_dict['TOV']:.1f}")
+    c5.metric("FGM/FGA", f"{stats_dict['FGM']:.1f}/{stats_dict['FGA']:.1f}")
+
+    st.markdown("#### Shooting Percentages")
+    s1, s2, s3 = st.columns(3)
+    s1.metric("FG%", f"{stats_dict['FG%']:.1f}%")
+    s2.metric("3P%", f"{stats_dict['3P%']:.1f}%")
+    s3.metric("FT%", f"{stats_dict['FT%']:.1f}%")
 
 
 # ----------------------------
@@ -258,8 +271,13 @@ if player_name:
                         "AST",
                         "STL",
                         "BLK",
+                        "FGM",
+                        "FGA",
                         "FG3M",
-                        "PRA",
+                        "FG3A",
+                        "FTM",
+                        "FTA",
+                        "TOV",
                         "StatValue",
                         "Hit",
                     ]
