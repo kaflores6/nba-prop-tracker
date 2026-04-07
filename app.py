@@ -4,7 +4,7 @@ from nba_api.stats.endpoints import playergamelog
 import pandas as pd
 
 st.set_page_config(layout="wide")
-st.title("The Batcave")
+st.title("Welcome to the Goon Cave")
 
 # ----------------------------
 # Helpers
@@ -95,64 +95,64 @@ def build_per_game_stats(df):
     }
 
 
-def show_stat_block(title, stats_dict):
+def show_stat_row(title, stats_dict):
     st.markdown(f"### {title}")
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
     c1.metric("GP", stats_dict["GP"])
-    c1.metric("PTS", f"{stats_dict['PTS']:.1f}")
-    c1.metric("REB", f"{stats_dict['REB']:.1f}")
-    c1.metric("AST", f"{stats_dict['AST']:.1f}")
+    c1.metric("MIN", f"{stats_dict['MIN']:.1f}")
 
-    c2.metric("MIN", f"{stats_dict['MIN']:.1f}")
-    c2.metric("STL", f"{stats_dict['STL']:.1f}")
-    c2.metric("BLK", f"{stats_dict['BLK']:.1f}")
-    c2.metric("3PM", f"{stats_dict['3PM']:.1f}")
+    c2.metric("PTS", f"{stats_dict['PTS']:.1f}")
+    c2.metric("REB", f"{stats_dict['REB']:.1f}")
 
-    c3.metric("FGM", f"{stats_dict['FGM']:.1f}")
-    c3.metric("FGA", f"{stats_dict['FGA']:.1f}")
-    c3.metric("FTM", f"{stats_dict['FTM']:.1f}")
-    c3.metric("FTA", f"{stats_dict['FTA']:.1f}")
+    c3.metric("AST", f"{stats_dict['AST']:.1f}")
+    c3.metric("PRA", f"{stats_dict['PRA']:.1f}")
 
-    c4.metric("TOV", f"{stats_dict['TOV']:.1f}")
-    c4.metric("PRA", f"{stats_dict['PRA']:.1f}")
+    c4.metric("STL", f"{stats_dict['STL']:.1f}")
+    c4.metric("BLK", f"{stats_dict['BLK']:.1f}")
+
+    c5.metric("3PM", f"{stats_dict['3PM']:.1f}")
+    c5.metric("TOV", f"{stats_dict['TOV']:.1f}")
 
 
 # ----------------------------
-# Inputs
+# Sidebar Filters
 # ----------------------------
-active_players = sorted([p["full_name"] for p in players.get_active_players()])
-player_name = st.selectbox("Search for an NBA Player", options=active_players)
+with st.sidebar:
+    st.header("Filters")
 
-stat_type = st.selectbox(
-    "Category",
-    [
-        "PTS",
-        "REB",
-        "AST",
-        "PTS+REB",
-        "PTS+AST",
-        "REB+AST",
-        "PRA",
-        "STL",
-        "BLK",
-        "3PM",
-    ],
-)
+    active_players = sorted([p["full_name"] for p in players.get_active_players()])
+    player_name = st.selectbox("Player", options=active_players)
 
-pick = st.selectbox("Pick", ["Over", "Under"])
-split = st.selectbox("Split", ["Overall", "Home", "Away"])
+    stat_type = st.selectbox(
+        "Category",
+        [
+            "PTS",
+            "REB",
+            "AST",
+            "PTS+REB",
+            "PTS+AST",
+            "REB+AST",
+            "PRA",
+            "STL",
+            "BLK",
+            "3PM",
+        ],
+    )
 
-nba_teams = teams.get_teams()
-team_abbrevs = sorted([t["abbreviation"] for t in nba_teams])
-opponent = st.selectbox("Opponent (team)", ["All"] + team_abbrevs)
+    pick = st.selectbox("Pick", ["Over", "Under"])
+    line = st.number_input("Line", value=19.5)
 
-game_range = st.selectbox(
-    "Game Sample",
-    ["All Games", "Last 5", "Last 10", "Last 15", "Last 20"]
-)
+    split = st.selectbox("Split", ["Overall", "Home", "Away"])
 
-line = st.number_input("Line", value=19.5)
+    nba_teams = teams.get_teams()
+    team_abbrevs = sorted([t["abbreviation"] for t in nba_teams])
+    opponent = st.selectbox("Opponent", ["All"] + team_abbrevs)
+
+    game_range = st.selectbox(
+        "Game Sample",
+        ["All Games", "Last 5", "Last 10", "Last 15", "Last 20"]
+    )
 
 # ----------------------------
 # Main
@@ -171,26 +171,17 @@ if player_name:
                 timeout=30
             ).get_data_frames()[0]
 
-            # PlayerGameLog includes standard game log box-score fields such as
-            # MIN, FGM, FGA, FG3M, FTM, FTA, REB, AST, STL, BLK, TOV, and PTS. :contentReference[oaicite:1]{index=1}
-
             log["GAME_DATE"] = pd.to_datetime(log["GAME_DATE"])
             log = log.sort_values("GAME_DATE", ascending=False).copy()
 
-            # Home / Away
             log["Location"] = log["MATCHUP"].apply(
                 lambda x: "Away" if "@" in x else "Home"
             )
 
-            # Opponent abbreviation from MATCHUP
             log["OPP"] = log["MATCHUP"].str.split().str[-1]
-
             log = add_derived_columns(log)
 
-            # Save full season stats BEFORE filters
             season_log = log.copy()
-
-            # Apply filters
             filtered_log = log.copy()
 
             if split != "Overall":
@@ -205,78 +196,78 @@ if player_name:
 
             filtered_log = calc_hit_column(filtered_log, stat_type, line, pick)
 
-            # ----------------------------
-            # Player header
-            # ----------------------------
-            top_left, top_right = st.columns([1, 3])
+            label_parts = [split]
+            if opponent != "All":
+                label_parts.append(f"vs {opponent}")
+            label_parts.append(game_range)
+            label = " • ".join(label_parts)
 
-            with top_left:
-                # This headshot URL is an inferred NBA CDN pattern based on player id.
-                # If a specific player image fails, Streamlit will just show the fallback text.
-                headshot_url = f"https://cdn.nba.com/headshots/nba/latest/1040x760/{p_id}.png"
-                st.image(headshot_url, caption=player_name, use_container_width=True)
-
-            with top_right:
-                st.subheader(player_name)
-
-                label_parts = [split]
-                if opponent != "All":
-                    label_parts.append(f"vs {opponent}")
-                label_parts.append(game_range)
-                label = " • ".join(label_parts)
-
-                st.write(f"**Current filter:** {label}")
-                st.write(f"**Prop:** {pick} {line} {stat_type}")
-
-                if len(filtered_log) == 0:
-                    st.warning(
-                        f"No games found for filters: Split={split}, Opponent={opponent}, Sample={game_range}"
-                    )
-                else:
-                    hit_rate = filtered_log["Hit"].mean() * 100
-                    st.metric(f"{pick} Hit Rate", f"{hit_rate:.1f}%")
-
-            # ----------------------------
-            # Stats blocks
-            # ----------------------------
             season_stats = build_per_game_stats(season_log)
             filtered_stats = build_per_game_stats(filtered_log)
 
-            st.divider()
-            show_stat_block("Season Per-Game Stats", season_stats)
+            # ----------------------------
+            # Top section
+            # ----------------------------
+            left, right = st.columns([1, 2])
 
-            st.divider()
-            show_stat_block(f"Filtered Per-Game Stats ({label})", filtered_stats)
+            with left:
+                headshot_url = f"https://cdn.nba.com/headshots/nba/latest/1040x760/{p_id}.png"
+                st.image(headshot_url, caption=player_name, use_container_width=True)
+
+            with right:
+                st.subheader(player_name)
+                st.write(f"**Filter:** {label}")
+                st.write(f"**Prop:** {pick} {line} {stat_type}")
+
+                if len(filtered_log) == 0:
+                    st.warning("No games found for these filters.")
+                else:
+                    hit_rate = filtered_log["Hit"].mean() * 100
+                    avg_selected_stat = filtered_log["StatValue"].mean()
+
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Hit Rate", f"{hit_rate:.1f}%")
+                    m2.metric("Games Found", len(filtered_log))
+                    m3.metric(f"Avg {stat_type}", f"{avg_selected_stat:.1f}")
 
             # ----------------------------
-            # Game log table
+            # Stats sections
+            # ----------------------------
+            st.divider()
+            show_stat_row("Season Per-Game Stats", season_stats)
+
+            st.divider()
+            show_stat_row(f"Filtered Per-Game Stats ({label})", filtered_stats)
+
+            # ----------------------------
+            # Game Log
             # ----------------------------
             if len(filtered_log) > 0:
                 st.divider()
                 st.markdown("### Filtered Game Log")
 
-                display_cols = [
-                    "GAME_DATE",
-                    "MATCHUP",
-                    "Location",
-                    "OPP",
-                    "MIN",
-                    "PTS",
-                    "REB",
-                    "AST",
-                    "STL",
-                    "BLK",
-                    "FG3M",
-                    "PRA",
-                    "StatValue",
-                    "Hit",
-                ]
+                display_log = filtered_log[
+                    [
+                        "GAME_DATE",
+                        "MATCHUP",
+                        "Location",
+                        "OPP",
+                        "MIN",
+                        "PTS",
+                        "REB",
+                        "AST",
+                        "STL",
+                        "BLK",
+                        "FG3M",
+                        "PRA",
+                        "StatValue",
+                        "Hit",
+                    ]
+                ].copy()
 
-                st.dataframe(
-                    filtered_log[display_cols].head(25),
-                    use_container_width=True
-                )
+                display_log["GAME_DATE"] = display_log["GAME_DATE"].dt.strftime("%Y-%m-%d")
+
+                st.dataframe(display_log, use_container_width=True)
 
     except Exception as e:
         st.error(f"NBA servers are busy or an error occurred: {e}")
-        
