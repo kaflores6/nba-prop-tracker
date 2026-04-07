@@ -3,8 +3,113 @@ from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import playergamelog
 import pandas as pd
 
-st.set_page_config(layout="wide")
-st.title("Welcome to the Goon Cave")
+# ----------------------------
+# Page config
+# ----------------------------
+st.set_page_config(
+    page_title="The Goon Cave"
+    layout="wide"
+)
+
+# ----------------------------
+# Custom styling
+# ----------------------------
+st.markdown("""
+<style>
+/* Main app width / zoomed out feel */
+.block-container {
+    max-width: 1200px;
+    padding-top: 1rem;
+    padding-bottom: 1.5rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+/* Main background + text */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+}
+
+[data-testid="stHeader"] {
+    background: rgba(0,0,0,0);
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: #111827;
+    border-right: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Card style */
+.custom-card {
+    background: rgba(30, 41, 59, 0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+/* Section title */
+.section-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #f8fafc;
+}
+
+/* Small muted text */
+.muted-text {
+    color: #94a3b8;
+    font-size: 0.95rem;
+}
+
+/* Green / red badges */
+.green-badge {
+    display: inline-block;
+    background: rgba(34, 197, 94, 0.18);
+    color: #4ade80;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: 1px solid rgba(74, 222, 128, 0.35);
+}
+
+.red-badge {
+    display: inline-block;
+    background: rgba(239, 68, 68, 0.18);
+    color: #f87171;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+/* Header title */
+.main-title {
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin-bottom: 0.2rem;
+}
+
+.main-subtitle {
+    text-align: center;
+    color: #94a3b8;
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ----------------------------
+# Header
+# ----------------------------
+st.markdown("<div class='main-title'>🏀 NBA Props Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-subtitle'>Analyze player props, splits, trends, and hit rates</div>", unsafe_allow_html=True)
 
 # ----------------------------
 # Helpers
@@ -103,7 +208,8 @@ def build_per_game_stats(df):
 
 
 def show_stat_row(title, stats_dict):
-    st.markdown(f"### {title}")
+    st.markdown(f"<div class='section-title'>{title}</div>", unsafe_allow_html=True)
+
     c1, c2, c3, c4, c5 = st.columns(5)
 
     c1.metric("GP", stats_dict["GP"])
@@ -121,18 +227,35 @@ def show_stat_row(title, stats_dict):
     c5.metric("3PM", f"{stats_dict['3PM']:.1f}")
     c5.metric("FGM/FGA", f"{stats_dict['FGM']:.1f}/{stats_dict['FGA']:.1f}")
 
-    st.markdown("#### Shooting Percentages")
+    st.markdown("<div class='muted-text' style='margin-top: 8px;'>Shooting Percentages</div>", unsafe_allow_html=True)
     s1, s2, s3 = st.columns(3)
     s1.metric("FG%", f"{stats_dict['FG%']:.1f}%")
     s2.metric("3P%", f"{stats_dict['3P%']:.1f}%")
     s3.metric("FT%", f"{stats_dict['FT%']:.1f}%")
 
 
+def color_hit_cell(val):
+    if val is True:
+        return "background-color: rgba(34, 197, 94, 0.20); color: #4ade80; font-weight: 700;"
+    if val is False:
+        return "background-color: rgba(239, 68, 68, 0.20); color: #f87171; font-weight: 700;"
+    return ""
+
+
+def color_statvalue(row):
+    if row["Hit"] is True:
+        return ["background-color: rgba(34, 197, 94, 0.12)" if col == "StatValue" else "" for col in row.index]
+    if row["Hit"] is False:
+        return ["background-color: rgba(239, 68, 68, 0.12)" if col == "StatValue" else "" for col in row.index]
+    return [""] * len(row)
+
+
 # ----------------------------
 # Sidebar Filters
 # ----------------------------
 with st.sidebar:
-    st.header("Filters")
+    st.markdown("## 🎛 Filters")
+    st.markdown("---")
 
     active_players = sorted([p["full_name"] for p in players.get_active_players()])
     player_name = st.selectbox("Player", options=active_players)
@@ -154,7 +277,7 @@ with st.sidebar:
     )
 
     pick = st.selectbox("Pick", ["Over", "Under"])
-    line = st.number_input("Line", value=19.5)
+    line = st.number_input("Line", value=19.5, step=0.5)
 
     split = st.selectbox("Split", ["Overall", "Home", "Away"])
 
@@ -218,9 +341,9 @@ if player_name:
             season_stats = build_per_game_stats(season_log)
             filtered_stats = build_per_game_stats(filtered_log)
 
-            # ----------------------------
-            # Top section
-            # ----------------------------
+            # Top card container
+            st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
+
             left, right = st.columns([1, 2])
 
             with left:
@@ -229,8 +352,8 @@ if player_name:
 
             with right:
                 st.subheader(player_name)
-                st.write(f"**Filter:** {label}")
-                st.write(f"**Prop:** {pick} {line} {stat_type}")
+                st.markdown(f"<div class='muted-text'><b>Filter:</b> {label}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='muted-text' style='margin-bottom: 12px;'><b>Prop:</b> {pick} {line} {stat_type}</div>", unsafe_allow_html=True)
 
                 if len(filtered_log) == 0:
                     st.warning("No games found for these filters.")
@@ -243,21 +366,27 @@ if player_name:
                     m2.metric("Games Found", len(filtered_log))
                     m3.metric(f"Avg {stat_type}", f"{avg_selected_stat:.1f}")
 
-            # ----------------------------
-            # Stats sections
-            # ----------------------------
-            st.divider()
+                    st.markdown("")
+                    badge_class = "green-badge" if hit_rate >= 50 else "red-badge"
+                    badge_text = "Trending Over / Strong Hit Rate" if hit_rate >= 50 else "Trending Under / Low Hit Rate"
+                    st.markdown(f"<span class='{badge_class}'>{badge_text}</span>", unsafe_allow_html=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Season stats card
+            st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
             show_stat_row("Season Per-Game Stats", season_stats)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            st.divider()
+            # Filtered stats card
+            st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
             show_stat_row(f"Filtered Per-Game Stats ({label})", filtered_stats)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            # ----------------------------
-            # Game Log
-            # ----------------------------
+            # Filtered game log
             if len(filtered_log) > 0:
-                st.divider()
-                st.markdown("### Filtered Game Log")
+                st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
+                st.markdown("<div class='section-title'>Filtered Game Log</div>", unsafe_allow_html=True)
 
                 display_log = filtered_log[
                     [
@@ -285,7 +414,14 @@ if player_name:
 
                 display_log["GAME_DATE"] = display_log["GAME_DATE"].dt.strftime("%Y-%m-%d")
 
-                st.dataframe(display_log, use_container_width=True)
+                styled_df = (
+                    display_log.style
+                    .apply(color_statvalue, axis=1)
+                    .map(color_hit_cell, subset=["Hit"])
+                )
+
+                st.dataframe(styled_df, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
     except Exception as e:
         st.error(f"NBA servers are busy or an error occurred: {e}")
