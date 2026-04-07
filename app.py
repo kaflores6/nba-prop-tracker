@@ -109,7 +109,7 @@ st.markdown("""
 # ----------------------------
 # Header
 # ----------------------------
-st.markdown("<div class='main-title'>🏀 NBA Props Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-title'>Welcome to The G🏀🏀n Cave</div>", unsafe_allow_html=True)
 st.markdown("<div class='main-subtitle'>Analyze player props, splits, trends, and hit rates</div>", unsafe_allow_html=True)
 
 # ----------------------------
